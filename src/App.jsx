@@ -20,8 +20,10 @@ function App() {
     prevClass: "",
     currentClass: "",
   });
+  const [currentPose, setCurrentPose] = useState('')
   const [verified, setVerified] = useState(false);
 
+  console.log("Prediction Status", predictionStatus);
   const URL = import.meta.env.VITE_MODEL_URL;
   let model, webcam, ctx, labelContainer, maxPredictions;
 
@@ -36,7 +38,7 @@ function App() {
 
     // Convenience function to setup a webcam
     const flip = true; // whether to flip the webcam
-    webcam = new tmPose.Webcam(200, 200, flip); // width, height, flip
+    webcam = new tmPose.Webcam(300, 300, flip); // width, height, flip
     await webcam.setup(); // request access to the webcam
     webcam.play();
     window.requestAnimationFrame(loop);
@@ -44,8 +46,8 @@ function App() {
     // append/get elements to the DOM
     const canvas = canvasRef.current;
     canvas.borderRadius = "50%";
-    canvas.width = 500;
-    canvas.height = 500;
+    canvas.width = 300;
+    canvas.height = 300;
     ctx = canvas.getContext("2d");
     // labelContainer = labelContainerRef.current;
     // for (let i = 0; i < maxPredictions; i++) {
@@ -57,10 +59,7 @@ function App() {
   async function loop(timestamp) {
     webcam.update(); // update the webcam frame
     await predict();
-    while (!verified) {
-      window.requestAnimationFrame(loop);
-    }
-    if(verified) webcam.stop();
+    window.requestAnimationFrame(loop);
   }
 
   async function predict() {
@@ -71,43 +70,68 @@ function App() {
     const prediction = await model.predict(posenetOutput);
 
     console.log("Prediction", prediction);
+    console.log("Hello");
 
     const bestConfidentIndex = prediction
       .map(({ probability }) => probability.toFixed(2))
       .reduce((iMax, x, i, arr) => (x > arr[iMax] ? i : iMax), 0);
     const predictedClass = prediction[bestConfidentIndex];
+    console.log("Predicted", predictedClass);
+
     if (predictedClass.probability.toFixed(2) > 0.7) {
-      if (predictedClass.className === "Left Up" && predictionStatus.currentClass === 'Left Up') setVerified(true);
+      if (
+        predictedClass.className === "Left Up" &&
+        predictionStatus.currentClass === "Left Up"
+      )
+        setVerified(true);
       else if (
+        predictionStatus.currentClass.length === 0 &&
+        predictedClass.className === "Right Up"
+      ) {
+        setPredictionStatus({
+          prevClass: "",
+          currentClass: "Right Up",
+        });
+      } else if (
         predictedClass.className !== predictionStatus.currentClass &&
         predictionStatus.currentClass.length > 0
       ) {
-
         // Either the user goes through one complete loop or the cycle resets.
-        if(predictedClass.className === 'Right Down' && predictionStatus.currentClass === 'Right Up') {
+        if (
+          predictedClass.className === "Right Down" &&
+          predictionStatus.currentClass === "Right Up"
+        ) {
           setPredictionStatus({
-            prevClass: 'Right Up',
-            currentClass: 'Right Down'
-          })
-        } else if(predictedClass.className === 'Left Down' && predictionStatus.currentClass === 'Right Down') {
+            prevClass: "Right Up",
+            currentClass: "Right Down",
+          });
+        } else if (
+          predictedClass.className === "Left Down" &&
+          predictionStatus.currentClass === "Right Down"
+        ) {
           setPredictionStatus({
-            prevClass: 'Right Down',
-            currentClass: 'Left Down'
-          })
-        } else if(predictedClass.className === 'Left Up' && predictionStatus.currentClass === 'Left Down') {
+            prevClass: "Right Down",
+            currentClass: "Left Down",
+          });
+        } else if (
+          predictedClass.className === "Left Up" &&
+          predictionStatus.currentClass === "Left Down"
+        ) {
           setPredictionStatus({
-            prevClass: 'Left Down',
-            currentClass: 'Left Up'
-          })
+            prevClass: "Left Down",
+            currentClass: "Left Up",
+          });
         } else {
           setPredictionStatus({
-            prevClass: '',
-            currentClass: ''
+            prevClass: "",
+            currentClass: "",
           });
           setTryAgain(true);
         }
       }
     }
+
+    setCurrentPose(predictedClass.className);
     // for (let i = 0; i < maxPredictions; i++) {
     //   const classPrediction =
     //     prediction[i].className + ": " + prediction[i].probability.toFixed(2);
@@ -184,17 +208,26 @@ function App() {
               sx={{
                 display: "flex",
                 justifyContent: "center",
+                mt: 5
               }}
             >
               <canvas ref={canvasRef}></canvas>
             </Box>
+            {tryAgain && (
+              <Typography align="center" mt={5}>
+                Please Try Once more!
+              </Typography>
+            )}
             {
-              tryAgain && 
-              <Typography align="center" mt={5}>Please Try Once more!</Typography>
+              verified &&
+              <Typography align="center" mt={5}>
+                Done!
+              </Typography>
             }
-            {
-
-            }
+            <Typography>Current: {currentPose}</Typography>
+            <Typography>Validation Current: {predictionStatus.currentClass}</Typography>
+            
+            <Typography>Validation Previous: {predictionStatus.prevClass}</Typography>
             {/* <Box ref={labelContainerRef}></Box> */}
           </>
         )}
